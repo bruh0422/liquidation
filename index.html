@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binance Liquidation Fireworks</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            height: 100vh;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #info-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            pointer-events: none;
+            max-width: 300px;
+        }
+        .log-item {
+            font-size: 12px;
+            margin-bottom: 4px;
+            opacity: 0.8;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 2px;
+        }
+        h1 {
+            font-size: 16px;
+            margin: 0 0 10px 0;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="info-overlay">
+        <h1>Liquidation Fireworks</h1>
+        <div id="logs">Waiting for data...</div>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // Resize handling
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Fireworks System
+        const fireworks = [];
+        const particles = [];
+
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        // Firework Class (The rocket going up)
+        class Firework {
+            constructor(targetX, targetY, size, color) {
+                this.x = random(width * 0.2, width * 0.8); // Start somewhere middle-ish
+                this.y = height;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.size = size; // Affects explosion size
+                this.color = color;
+
+                this.speed = 2;
+                this.angle = Math.atan2(targetY - this.y, targetX - this.x);
+                this.velocityX = Math.cos(this.angle) * this.speed * 3; // Initial speed
+                this.velocityY = Math.sin(this.angle) * this.speed * 3;
+
+                this.distanceTraveled = 0;
+                this.distanceToTarget = Math.sqrt(Math.pow(targetX - this.x, 2) + Math.pow(targetY - this.y, 2));
+                this.acceleration = 1.05;
+                this.brightness = random(50, 70);
+                this.dead = false;
+            }
+
+            update(index) {
+                this.speed *= this.acceleration;
+
+                const vx = Math.cos(this.angle) * this.speed;
+                const vy = Math.sin(this.angle) * this.speed;
+
+                // Actual position update
+                this.x += vx;
+                this.y += vy;
+
+                // Check distance: if we passed the target Y (since we go up, y decreases)
+                if (this.y <= this.targetY) {
+                   this.dead = true;
+                   createParticles(this.targetX, this.targetY, this.size, this.color);
+                   fireworks.splice(index, 1);
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - Math.cos(this.angle) * 10, this.y - Math.sin(this.angle) * 10); // Trail
+                ctx.strokeStyle = this.color;
+                ctx.stroke();
+            }
+        }
+
+        // Particle Class (The explosion)
+        class Particle {
+            constructor(x, y, color, sizeMultiplier) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.angle = random(0, Math.PI * 2);
+
+                // Explosive speed. Small fires just "pop", large ones "blast" out.
+                // We dampen the multiplier slightly so it doesn't fly off screen instantly
+                let speedBase = random(2, 8);
+                this.speed = speedBase * (0.8 + sizeMultiplier * 0.4);
+
+                this.friction = 0.95;
+                this.gravity = 1 + (sizeMultiplier * 0.1); // Big pieces fall slightly heavier? or standard gravity. Let's keep gravity mostly 1-2.
+                this.alpha = 1;
+
+                // Larger orders last MUCH longer to be seen
+                this.decay = random(0.005, 0.015) / (sizeMultiplier * 0.6);
+
+                // Draw size: Huge particles for huge orders.
+                this.size = random(1.5, 4) * (0.5 + sizeMultiplier * 0.3);
+                if (this.size < 1.5) this.size = 1.5;
+            }
+
+            update(index) {
+                this.speed *= this.friction;
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed + this.gravity;
+                this.alpha -= this.decay;
+
+                if (this.alpha <= this.decay) {
+                    particles.splice(index, 1);
+                }
+            }
+
+            draw() {
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function createParticles(x, y, sizeMultiplier, color) {
+            // Count logic:
+            // Small (~0.7 size) -> 40 + ~7 = 47
+            // Medium (~2.0 size) -> 40 + 60 = 100
+            // Huge (~6.0 size) -> 40 + 540 = 580
+            // Cap higher
+            let particleCount = 40 + (sizeMultiplier * sizeMultiplier * 15);
+            if (particleCount > 800) particleCount = 800; // Allow massive explosions
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(x, y, color, sizeMultiplier));
+            }
+        }
+
+        // Loop
+        function loop() {
+            requestAnimationFrame(loop);
+
+            // Clear but keep trails
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'; // Trail length
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.globalCompositeOperation = 'lighter';
+
+            // Update Fireworks
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                fireworks[i].draw();
+                fireworks[i].update(i);
+            }
+
+            // Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].draw();
+                particles[i].update(i);
+            }
+        }
+
+        loop();
+
+        // WebSocket & Liquidation Logic
+        const logsDiv = document.getElementById('logs');
+        const wsUrl = 'wss://fstream.binance.com/ws/!forceOrder@arr';
+        let ws;
+
+        function getColorFromSymbol(symbol) {
+            let hash = 0;
+            for (let i = 0; i < symbol.length; i++) {
+                hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash % 360);
+            return `hsl(${hue}, 100%, 60%)`;
+        }
+
+        function addLog(text, color) {
+            const div = document.createElement('div');
+            div.className = 'log-item';
+            div.style.color = color;
+            div.innerText = text;
+            logsDiv.prepend(div);
+            if (logsDiv.children.length > 15) {
+                logsDiv.removeChild(logsDiv.lastChild);
+            }
+        }
+
+        function connect() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                addLog('Connected to Binance Stream', '#fff');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.e === 'forceOrder' && data.o) {
+                    processOrder(data.o);
+                }
+            };
+
+            ws.onclose = () => {
+                addLog('Disconnected. Reconnecting...', '#f00');
+                setTimeout(connect, 5000);
+            };
+
+            ws.onerror = (err) => {
+                console.error(err);
+            }
+        }
+
+        function processOrder(order) {
+            const price = parseFloat(order.p);
+            const qty = parseFloat(order.q);
+            const totalValue = price * qty;
+            const symbol = order.s;
+            const side = order.S; // BUY or SELL
+
+            // Determine size based on value (USD)
+            // Logarithmic scale for better visual handling of huge variances
+            // Assume min meaningful liquidation ~ $1000, max > $1M
+
+            let logVal = Math.log10(totalValue);
+            // Example: $100 -> 2, $1000 -> 3, $1M -> 6
+            if (logVal < 2) logVal = 2;
+
+            // Exponential effect on top of log to widen the gap
+            // (logVal - 1.5) ranges from ~0.5 to ~4.5+
+            // Math.pow(..., 1.8) makes the curve steeper
+            let size =  Math.pow(logVal - 1.8, 1.8) * 0.5;
+
+            // Result reference:
+            // $100 (log 2) -> ~0.03 (tiny)
+            // $1,000 (log 3) -> ~0.7 (small)
+            // $10,000 (log 4) -> ~2.0 (medium)
+            // $100,000 (log 5) -> ~3.9 (large)
+            // $1,000,000 (log 6) -> ~6.4 (huge)
+
+            if (size < 0.4) size = 0.4; // Min visibility
+
+            const color = getColorFromSymbol(symbol);
+
+            // Random position in upper half
+            const targetX = random(width * 0.1, width * 0.9);
+            const targetY = random(height * 0.1, height * 0.6);
+
+            // Launch firework
+            fireworks.push(new Firework(targetX, targetY, size, color));
+
+            // Format currency
+            const formatter = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                maximumFractionDigits: 0
+            });
+
+            addLog(`${symbol} ${side} - ${formatter.format(totalValue)}`, color);
+        }
+
+        connect();
+
+    </script>
+</body>
+</html>
