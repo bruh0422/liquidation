@@ -96,15 +96,15 @@
                 this.dead = false;
             }
 
-            update(index) {
-                this.speed *= this.acceleration;
+            update(index, timeScale) {
+                this.speed *= Math.pow(this.acceleration, timeScale);
 
                 const vx = Math.cos(this.angle) * this.speed;
                 const vy = Math.sin(this.angle) * this.speed;
 
                 // Actual position update
-                this.x += vx;
-                this.y += vy;
+                this.x += vx * timeScale;
+                this.y += vy * timeScale;
 
                 // Check distance: if we passed the target Y (since we go up, y decreases)
                 if (this.y <= this.targetY) {
@@ -148,13 +148,13 @@
                 if (this.size < 1.5) this.size = 1.5;
             }
 
-            update(index) {
-                this.speed *= this.friction;
-                this.x += Math.cos(this.angle) * this.speed;
-                this.y += Math.sin(this.angle) * this.speed + this.gravity;
-                this.alpha -= this.decay;
+            update(index, timeScale) {
+                this.speed *= Math.pow(this.friction, timeScale);
+                this.x += Math.cos(this.angle) * this.speed * timeScale;
+                this.y += (Math.sin(this.angle) * this.speed + this.gravity) * timeScale;
+                this.alpha -= this.decay * timeScale;
 
-                if (this.alpha <= this.decay) {
+                if (this.alpha <= 0) {
                     particles.splice(index, 1);
                 }
             }
@@ -184,12 +184,22 @@
         }
 
         // Loop
+        let lastTime = performance.now();
         function loop() {
             requestAnimationFrame(loop);
 
+            const now = performance.now();
+            let dt = (now - lastTime);
+            lastTime = now;
+
+            // Normalize to 60fps (approx 16.6ms)
+            // If dt is 16.6, timeScale is 1. If 8.3 (120fps), timeScale is 0.5
+            let timeScale = dt / 16.666;
+            if (timeScale > 4) timeScale = 4; // Prevent huge jumps on tab switch
+
             // Clear but keep trails
             ctx.globalCompositeOperation = 'destination-out';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'; // Trail length
+            ctx.fillStyle = `rgba(0, 0, 0, ${0.2 * timeScale})`; // Scale trail opacity too
             ctx.fillRect(0, 0, width, height);
 
             ctx.globalCompositeOperation = 'lighter';
@@ -197,13 +207,13 @@
             // Update Fireworks
             for (let i = fireworks.length - 1; i >= 0; i--) {
                 fireworks[i].draw();
-                fireworks[i].update(i);
+                fireworks[i].update(i, timeScale);
             }
 
             // Update Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 particles[i].draw();
-                particles[i].update(i);
+                particles[i].update(i, timeScale);
             }
         }
 
