@@ -3,163 +3,379 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Binance Liquidation Fireworks</title>
+
+    <!-- SEO Meta Tags -->
+    <title>Binance Liquidation Fireworks | Live Crypto Rekt Monitor</title>
+    <meta name="description" content="Watch real-time cryptocurrency liquidations on Binance visualized as fireworks. Monitor Bitcoin (BTC), Ethereum (ETH), and Altcoin REKT events live.">
+    <meta name="keywords" content="Binance, Liquidation, Crypto, Bitcoin, Ethereum, Fireworks, Rekt, Long/Short, Live Monitor, Trading Tool">
+    <meta name="author" content="Liquidation Watch">
+
+    <!-- Open Graph (Facebook/Discord/Twitter) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Binance Liquidation Fireworks">
+    <meta property="og:description" content="Beautiful real-time visualization of crypto market liquidations. Hear the sound of market volatility.">
+    <meta property="og:image" content="https://static-app.bb-os.com/icon/BTC.png"> <!-- Placeholder image -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-gradient: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            --overlay-bg: rgba(15, 23, 42, 0.75);
+            --overlay-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-green: #22c55e; /* Shorts rekt (Buy) */
+            --accent-red: #ef4444;   /* Longs rekt (Sell) */
+        }
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            background: var(--bg-gradient);
             height: 100vh;
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
         }
         #canvas {
             display: block;
             width: 100%;
             height: 100%;
         }
-        #info-overlay {
+
+        /* UI Components */
+        .overlay-container {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
             pointer-events: none;
-            max-width: 300px;
         }
-        .log-item {
-            font-size: 12px;
-            margin-bottom: 4px;
-            opacity: 0.8;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 2px;
+
+        #info-panel {
+            top: 20px;
+            left: 20px;
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
+
+        .glass-panel {
+            background: var(--overlay-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--overlay-border);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            pointer-events: auto; /* Allow scrolling if we add it later */
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--overlay-border);
+            padding-bottom: 12px;
+        }
+
         h1 {
-            font-size: 16px;
-            margin: 0 0 10px 0;
-            opacity: 0.9;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #stats-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        #logs-container {
+            max-height: 400px; /* Prevent it getting too tall */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
+        }
+
+        /* Log Row Layout */
+        .log-row {
+            display: grid;
+            grid-template-columns: 24px 1fr auto;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            transition: transform 0.2s, background 0.2s;
+            animation: slideIn 0.3s ease-out;
+            font-size: 13px;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #282f3d; /* Placeholder bg */
+            object-fit: cover;
+            display: block; /* Ensure it takes space */
+        }
+
+        .log-icon.hidden {
+            display: none; /* Only hide if strictly necessary, but better to keep placeholder */
+        }
+
+        .log-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+            overflow: hidden; /* Prevent text overflow */
+        }
+
+        .log-symbol {
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap; /* Prevent wrapping */
+            text-overflow: ellipsis; /* ... if too long */
+            overflow: hidden;
+        }
+
+        .log-side {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .side-buy { color: var(--accent-green); }
+        .side-sell { color: var(--accent-red); }
+
+        .log-amount {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        /* Notification */
+        #notification {
+            top: 24px;
+            right: 24px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            backdrop-filter: blur(8px);
+        }
+        #notification.show {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
 <body>
 
-    <div id="info-overlay">
-        <h1>Liquidation Fireworks</h1>
-        <div id="logs">Waiting for data...</div>
+    <div id="notification" class="overlay-container"></div>
+
+    <div id="info-panel" class="overlay-container">
+        <div class="glass-panel">
+            <header>
+                <h1>Live Liquidations</h1>
+                <div id="stats-value">$0.00 Vol</div>
+            </header>
+            <div id="logs-container">
+                <!-- Logs will appear here -->
+            </div>
+        </div>
     </div>
+
     <canvas id="canvas"></canvas>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        let width, height;
+        // --- Configuration ---
+        const CONFIG = {
+            WS_URL: 'wss://fstream.binance.com/ws/!forceOrder@arr',
+            ICON_BASE: 'https://static-app.bb-os.com/icon/',
+            MAX_LOGS: 15,
+            PARTICLE_LIMIT: 800,
+            GRAVITY: 1,
+            FPS: 60
+        };
 
-        // Resize handling
-        function resize() {
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
+        // --- Utils ---
+        const Utils = {
+            random: (min, max) => Math.random() * (max - min) + min,
+
+            getBaseAsset: (symbol) => {
+                const suffixes = ['USDT', 'BUSD', 'USDC'];
+                for (const s of suffixes) {
+                    if (symbol.endsWith(s)) return symbol.slice(0, -s.length);
+                }
+                return symbol;
+            },
+
+            getColorFallback: (base) => {
+                let hash = 0;
+                for (let i = 0; i < base.length; i++) {
+                    hash = base.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                return `hsl(${Math.abs(hash % 360)}, 100%, 60%)`;
+            },
+
+            formatCurrency: new Intl.NumberFormat('en-US', {
+                style: 'currency', currency: 'USD', maximumFractionDigits: 0
+            })
+        };
+
+        // --- Color Manager ---
+        class ColorManager {
+            constructor() {
+                this.cache = {};
+                this.pending = {};
+            }
+
+            async getColor(symbol, iconUrl) {
+                const base = Utils.getBaseAsset(symbol);
+
+                if (this.cache[base]) return this.cache[base];
+                if (this.pending[base]) return this.pending[base];
+
+                const promise = this._extractColor(iconUrl, base);
+                this.pending[base] = promise;
+                return promise;
+            }
+
+            _extractColor(url, base) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous";
+                    img.src = url;
+
+                    img.onload = () => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = 30; canvas.height = 30;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, 30, 30);
+                            const data = ctx.getImageData(0, 0, 30, 30).data;
+
+                            let r = 0, g = 0, b = 0, count = 0;
+                            for (let i = 0; i < data.length; i += 4) {
+                                if (data[i+3] > 128) { // Ignore transparent
+                                    r += data[i]; g += data[i+1]; b += data[i+2];
+                                    count++;
+                                }
+                            }
+
+                            const color = count > 0
+                                ? `rgb(${Math.floor(r/count)}, ${Math.floor(g/count)}, ${Math.floor(b/count)})`
+                                : Utils.getColorFallback(base);
+
+                            this.cache[base] = color;
+                            resolve(color);
+                        } catch {
+                            this._fallback(base, resolve);
+                        }
+                    };
+                    img.onerror = () => this._fallback(base, resolve);
+                }).finally(() => {
+                    delete this.pending[base];
+                });
+            }
+
+            _fallback(base, resolve) {
+                const color = Utils.getColorFallback(base);
+                this.cache[base] = color;
+                resolve(color);
+            }
         }
-        window.addEventListener('resize', resize);
-        resize();
 
-        // Fireworks System
-        const fireworks = [];
-        const particles = [];
-
-        function random(min, max) {
-            return Math.random() * (max - min) + min;
-        }
-
-        // Firework Class (The rocket going up)
+        // --- Physics Entities ---
         class Firework {
-            constructor(targetX, targetY, size, color) {
-                this.x = random(width * 0.2, width * 0.8); // Start somewhere middle-ish
-                this.y = height;
+            constructor(targetX, targetY, size, color, canvasHeight) {
+                this.x = Utils.random(window.innerWidth * 0.2, window.innerWidth * 0.8);
+                this.y = canvasHeight;
                 this.targetX = targetX;
                 this.targetY = targetY;
-                this.size = size; // Affects explosion size
+                this.size = size;
                 this.color = color;
-
-                this.speed = 2;
-                this.angle = Math.atan2(targetY - this.y, targetX - this.x);
-                this.velocityX = Math.cos(this.angle) * this.speed * 3; // Initial speed
-                this.velocityY = Math.sin(this.angle) * this.speed * 3;
-
-                this.distanceTraveled = 0;
-                this.distanceToTarget = Math.sqrt(Math.pow(targetX - this.x, 2) + Math.pow(targetY - this.y, 2));
-                this.acceleration = 1.05;
-                this.brightness = random(50, 70);
                 this.dead = false;
+
+                const angle = Math.atan2(targetY - this.y, targetX - this.x);
+                this.speed = 2;
+                this.velocityX = Math.cos(angle) * this.speed * 3;
+                this.velocityY = Math.sin(angle) * this.speed * 3;
+                this.acceleration = 1.05;
             }
 
-            update(index, timeScale) {
+            update(timeScale) {
                 this.speed *= Math.pow(this.acceleration, timeScale);
+                const angle = Math.atan2(this.targetY - this.y, this.targetX - this.x);
 
-                const vx = Math.cos(this.angle) * this.speed;
-                const vy = Math.sin(this.angle) * this.speed;
+                this.x += Math.cos(angle) * this.speed * timeScale;
+                this.y += Math.sin(angle) * this.speed * timeScale;
 
-                // Actual position update
-                this.x += vx * timeScale;
-                this.y += vy * timeScale;
-
-                // Check distance: if we passed the target Y (since we go up, y decreases)
                 if (this.y <= this.targetY) {
-                   this.dead = true;
-                   createParticles(this.targetX, this.targetY, this.size, this.color);
-                   fireworks.splice(index, 1);
+                    this.dead = true;
+                    return true; // Explode
                 }
+                return false;
             }
 
-            draw() {
+            draw(ctx) {
                 ctx.beginPath();
+                // Trail calculation simplified
+                const angle = Math.atan2(this.targetY - this.y, this.targetX - this.x);
                 ctx.moveTo(this.x, this.y);
-                ctx.lineTo(this.x - Math.cos(this.angle) * 10, this.y - Math.sin(this.angle) * 10); // Trail
+                ctx.lineTo(this.x - Math.cos(angle) * 10, this.y - Math.sin(angle) * 10);
                 ctx.strokeStyle = this.color;
                 ctx.stroke();
             }
         }
 
-        // Particle Class (The explosion)
         class Particle {
             constructor(x, y, color, sizeMultiplier) {
                 this.x = x;
                 this.y = y;
                 this.color = color;
-                this.angle = random(0, Math.PI * 2);
-
-                // Explosive speed. Small fires just "pop", large ones "blast" out.
-                // We dampen the multiplier slightly so it doesn't fly off screen instantly
-                let speedBase = random(2, 8);
-                this.speed = speedBase * (0.8 + sizeMultiplier * 0.4);
-
-                this.friction = 0.95;
-                this.gravity = 1 + (sizeMultiplier * 0.1); // Big pieces fall slightly heavier? or standard gravity. Let's keep gravity mostly 1-2.
                 this.alpha = 1;
 
-                // Larger orders last MUCH longer to be seen
-                this.decay = random(0.005, 0.015) / (sizeMultiplier * 0.6);
+                const angle = Utils.random(0, Math.PI * 2);
+                const speed = Utils.random(2, 8) * (0.8 + sizeMultiplier * 0.4);
 
-                // Draw size: Huge particles for huge orders.
-                this.size = random(1.5, 4) * (0.5 + sizeMultiplier * 0.3);
-                if (this.size < 1.5) this.size = 1.5;
+                this.velocityX = Math.cos(angle) * speed;
+                this.velocityY = Math.sin(angle) * speed;
+
+                this.decay = Utils.random(0.005, 0.015) / (sizeMultiplier * 0.6);
+                this.size = Math.max(1.5, Utils.random(1.5, 4) * (0.5 + sizeMultiplier * 0.3));
             }
 
-            update(index, timeScale) {
-                this.speed *= Math.pow(this.friction, timeScale);
-                this.x += Math.cos(this.angle) * this.speed * timeScale;
-                this.y += (Math.sin(this.angle) * this.speed + this.gravity) * timeScale;
+            update(timeScale) {
+                this.velocityX *= Math.pow(0.95, timeScale);
+                this.velocityY *= Math.pow(0.95, timeScale);
+
+                this.x += this.velocityX * timeScale;
+                this.y += (this.velocityY + CONFIG.GRAVITY) * timeScale;
                 this.alpha -= this.decay * timeScale;
 
-                if (this.alpha <= 0) {
-                    particles.splice(index, 1);
-                }
+                return this.alpha <= 0;
             }
 
-            draw() {
+            draw(ctx) {
                 ctx.globalAlpha = this.alpha;
                 ctx.fillStyle = this.color;
                 ctx.beginPath();
@@ -169,154 +385,228 @@
             }
         }
 
-        function createParticles(x, y, sizeMultiplier, color) {
-            // Count logic:
-            // Small (~0.7 size) -> 40 + ~7 = 47
-            // Medium (~2.0 size) -> 40 + 60 = 100
-            // Huge (~6.0 size) -> 40 + 540 = 580
-            // Cap higher
-            let particleCount = 40 + (sizeMultiplier * sizeMultiplier * 15);
-            if (particleCount > 800) particleCount = 800; // Allow massive explosions
+        // --- Render System ---
+        class Renderer {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = 0;
+                this.height = 0;
+                this.fireworks = [];
+                this.particles = [];
+                this.lastTime = performance.now();
 
-            for (let i = 0; i < particleCount; i++) {
-                particles.push(new Particle(x, y, color, sizeMultiplier));
-            }
-        }
-
-        // Loop
-        let lastTime = performance.now();
-        function loop() {
-            requestAnimationFrame(loop);
-
-            const now = performance.now();
-            let dt = (now - lastTime);
-            lastTime = now;
-
-            // Normalize to 60fps (approx 16.6ms)
-            // If dt is 16.6, timeScale is 1. If 8.3 (120fps), timeScale is 0.5
-            let timeScale = dt / 16.666;
-            if (timeScale > 4) timeScale = 4; // Prevent huge jumps on tab switch
-
-            // Clear but keep trails
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.fillStyle = `rgba(0, 0, 0, ${0.2 * timeScale})`; // Scale trail opacity too
-            ctx.fillRect(0, 0, width, height);
-
-            ctx.globalCompositeOperation = 'lighter';
-
-            // Update Fireworks
-            for (let i = fireworks.length - 1; i >= 0; i--) {
-                fireworks[i].draw();
-                fireworks[i].update(i, timeScale);
+                window.addEventListener('resize', () => this.resize());
+                this.resize();
+                this.loop();
             }
 
-            // Update Particles
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].draw();
-                particles[i].update(i, timeScale);
+            resize() {
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
             }
-        }
 
-        loop();
-
-        // WebSocket & Liquidation Logic
-        const logsDiv = document.getElementById('logs');
-        const wsUrl = 'wss://fstream.binance.com/ws/!forceOrder@arr';
-        let ws;
-
-        function getColorFromSymbol(symbol) {
-            let hash = 0;
-            for (let i = 0; i < symbol.length; i++) {
-                hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
+            addFirework(x, y, size, color) {
+                this.fireworks.push(new Firework(x, y, size, color, this.height));
             }
-            const hue = Math.abs(hash % 360);
-            return `hsl(${hue}, 100%, 60%)`;
-        }
 
-        function addLog(text, color) {
-            const div = document.createElement('div');
-            div.className = 'log-item';
-            div.style.color = color;
-            div.innerText = text;
-            logsDiv.prepend(div);
-            if (logsDiv.children.length > 15) {
-                logsDiv.removeChild(logsDiv.lastChild);
-            }
-        }
+            explode(x, y, size, color) {
+                let count = 40 + (size * size * 15);
+                if (count > CONFIG.PARTICLE_LIMIT) count = CONFIG.PARTICLE_LIMIT;
 
-        function connect() {
-            ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                addLog('Connected to Binance Stream', '#fff');
-            };
-
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.e === 'forceOrder' && data.o) {
-                    processOrder(data.o);
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(new Particle(x, y, color, size));
                 }
-            };
+            }
 
-            ws.onclose = () => {
-                addLog('Disconnected. Reconnecting...', '#f00');
-                setTimeout(connect, 5000);
-            };
+            loop() {
+                requestAnimationFrame(() => this.loop());
 
-            ws.onerror = (err) => {
-                console.error(err);
+                const now = performance.now();
+                let timeScale = (now - this.lastTime) / (1000 / CONFIG.FPS);
+                if (timeScale > 4) timeScale = 4;
+                this.lastTime = now;
+
+                // Clear with trail effect
+                this.ctx.globalCompositeOperation = 'destination-out';
+                this.ctx.fillStyle = `rgba(0, 0, 0, ${0.2 * timeScale})`;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                this.ctx.globalCompositeOperation = 'lighter';
+
+                // Update & Draw Fireworks
+                for (let i = this.fireworks.length - 1; i >= 0; i--) {
+                    const fw = this.fireworks[i];
+                    fw.draw(this.ctx);
+                    if (fw.update(timeScale)) {
+                        this.explode(fw.targetX, fw.targetY, fw.size, fw.color);
+                        this.fireworks.splice(i, 1);
+                    }
+                }
+
+                // Update & Draw Particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.draw(this.ctx);
+                    if (p.update(timeScale)) {
+                        this.particles.splice(i, 1);
+                    }
+                }
             }
         }
 
-        function processOrder(order) {
-            const price = parseFloat(order.p);
-            const qty = parseFloat(order.q);
-            const totalValue = price * qty;
-            const symbol = order.s;
-            const side = order.S; // BUY or SELL
+        // --- UI System ---
+        class UIManager {
+            constructor() {
+                this.logsContainer = document.getElementById('logs-container');
+                this.statsValue = document.getElementById('stats-value');
+                this.notifDiv = document.getElementById('notification');
+                this.notifTimeout = null;
+            }
 
-            // Determine size based on value (USD)
-            // Logarithmic scale for better visual handling of huge variances
-            // Assume min meaningful liquidation ~ $1000, max > $1M
+            addLog(symbol, side, formattedValue, color, iconUrl) {
+                const row = document.createElement('div');
+                row.className = 'log-row';
+                row.style.borderLeft = `3px solid ${color}`; // Color accent
 
-            let logVal = Math.log10(totalValue);
-            // Example: $100 -> 2, $1000 -> 3, $1M -> 6
-            if (logVal < 2) logVal = 2;
+                // Icon
+                const img = document.createElement('img');
+                img.src = iconUrl || '';
+                img.className = 'log-icon';
 
-            // Exponential effect on top of log to widen the gap
-            // (logVal - 1.5) ranges from ~0.5 to ~4.5+
-            // Math.pow(..., 1.8) makes the curve steeper
-            let size =  Math.pow(logVal - 1.8, 1.8) * 0.5;
+                // If invalid url or load fails, keep the element but show placeholder bg
+                // This maintains the grid layout '24px 1fr auto'
+                img.onerror = () => {
+                    img.style.opacity = '0'; // Hide the broken image icon
+                    // Or set a default src: img.src = 'default.png';
+                };
 
-            // Result reference:
-            // $100 (log 2) -> ~0.03 (tiny)
-            // $1,000 (log 3) -> ~0.7 (small)
-            // $10,000 (log 4) -> ~2.0 (medium)
-            // $100,000 (log 5) -> ~3.9 (large)
-            // $1,000,000 (log 6) -> ~6.4 (huge)
+                // Info Column (Symbol + Side)
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'log-info';
 
-            if (size < 0.4) size = 0.4; // Min visibility
+                const symSpan = document.createElement('span');
+                symSpan.className = 'log-symbol';
+                symSpan.innerText = symbol;
 
-            const color = getColorFromSymbol(symbol);
+                const sideSpan = document.createElement('span');
+                // S = SELL (Long Liq) -> Red
+                // S = BUY (Short Liq) -> Green
+                const isBuy = side === 'BUY';
+                sideSpan.className = `log-side ${isBuy ? 'side-buy' : 'side-sell'}`;
+                sideSpan.innerText = isBuy ? 'SHORT LIQ' : 'LONG LIQ';
 
-            // Random position in upper half
-            const targetX = random(width * 0.1, width * 0.9);
-            const targetY = random(height * 0.1, height * 0.6);
+                infoDiv.appendChild(symSpan);
+                infoDiv.appendChild(sideSpan);
 
-            // Launch firework
-            fireworks.push(new Firework(targetX, targetY, size, color));
+                // Amount
+                const amountDiv = document.createElement('div');
+                amountDiv.className = 'log-amount';
+                amountDiv.innerText = formattedValue;
+                // amountDiv.style.color = color; // Removed to keep text white
 
-            // Format currency
-            const formatter = new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD',
-                maximumFractionDigits: 0
-            });
+                // Assemble
+                row.appendChild(img);
+                row.appendChild(infoDiv);
+                row.appendChild(amountDiv);
 
-            addLog(`${symbol} ${side} - ${formatter.format(totalValue)}`, color);
+                this.logsContainer.prepend(row);
+                if (this.logsContainer.children.length > CONFIG.MAX_LOGS) {
+                    this.logsContainer.removeChild(this.logsContainer.lastChild);
+                }
+            }
+
+            updateVol(totalVol) {
+                 // Format efficiently: $1.2M, $500k, etc
+                 const fmt = (n) => {
+                     if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+                     if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'k';
+                     return '$' + n.toFixed(0);
+                 }
+                 this.statsValue.innerText = `Vol: ${fmt(totalVol)}`;
+            }
+
+            showNotification(message, type = 'info') {
+                const colors = {
+                    success: 'rgba(34, 197, 94, 0.9)', // Green-500
+                    error: 'rgba(239, 68, 68, 0.9)',   // Red-500
+                    info: 'rgba(59, 130, 246, 0.9)'    // Blue-500
+                };
+
+                this.notifDiv.innerText = message;
+                this.notifDiv.style.background = colors[type] || colors.info;
+                this.notifDiv.classList.add('show');
+
+                clearTimeout(this.notifTimeout);
+                this.notifTimeout = setTimeout(() => {
+                    this.notifDiv.classList.remove('show');
+                }, 3000);
+            }
         }
 
-        connect();
+        // --- Application Core ---
+        class App {
+            constructor() {
+                this.renderer = new Renderer();
+                this.ui = new UIManager();
+                this.colors = new ColorManager();
+                this.ws = null;
+                this.sessionVol = 0;
+                this.init();
+            }
+
+            init() {
+                this.connect();
+            }
+
+            connect() {
+                this.ws = new WebSocket(CONFIG.WS_URL);
+
+                this.ws.onopen = () => this.ui.showNotification('Connected to Binance Stream', 'success');
+                this.ws.onclose = () => {
+                    this.ui.showNotification('Disconnected. Reconnecting...', 'error');
+                    setTimeout(() => this.connect(), 5000);
+                };
+                this.ws.onerror = (e) => console.error(e);
+
+                this.ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.e === 'forceOrder' && data.o) this.processOrder(data.o);
+                };
+            }
+
+            async processOrder(order) {
+                const price = parseFloat(order.p);
+                const qty = parseFloat(order.q);
+                const totalValue = price * qty;
+                const symbol = order.s;
+
+                this.sessionVol += totalValue;
+                this.ui.updateVol(this.sessionVol);
+
+                // Calculate Size
+                let logVal = Math.max(2, Math.log10(totalValue));
+                let size = Math.pow(logVal - 1.8, 1.8) * 0.5;
+                if (size < 0.4) size = 0.4;
+
+                // Resolve Asset & Color
+                const baseAsset = Utils.getBaseAsset(symbol);
+                const iconUrl = `${CONFIG.ICON_BASE}${baseAsset.toUpperCase()}.png`;
+                const color = await this.colors.getColor(symbol, iconUrl);
+
+                // Launch Firework
+                const targetX = Utils.random(this.renderer.width * 0.1, this.renderer.width * 0.9);
+                const targetY = Utils.random(this.renderer.height * 0.1, this.renderer.height * 0.6);
+                this.renderer.addFirework(targetX, targetY, size, color);
+
+                // Update UI
+                this.ui.addLog(symbol, order.S, Utils.formatCurrency.format(totalValue), color, iconUrl);
+            }
+        }
+
+        // Start Application
+        new App();
 
     </script>
 </body>
