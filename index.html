@@ -185,6 +185,80 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            #info-panel {
+                top: 10px;
+                left: 10px;
+                right: 10px; /* Full width minus margin */
+                width: auto;
+            }
+
+            #logs-container {
+                max-height: 25vh; /* Reduce height significantly on mobile to see fireworks */
+            }
+
+            .log-row {
+                font-size: 11px; /* Smaller text */
+                padding: 6px;
+                gap: 6px;
+                grid-template-columns: 20px 1fr auto; /* Adjust icon column width */
+            }
+
+            .log-icon {
+                width: 16px;
+                height: 16px;
+            }
+
+            /* Hide side text if screen is very narrow, or just shorten it?
+               Current: "LONG LIQ", "SHORT LIQ" is fine.
+            */
+
+            #notification {
+                top: auto;
+                bottom: 20px;
+                left: 20px;
+                right: 20px;
+                width: auto;
+                text-align: center;
+                transform: translateY(10px);
+            }
+
+            #notification.show {
+                transform: translateY(0);
+            }
+        }
+
+        /* Minimize Button & Controls */
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .minimize-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--overlay-border);
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+            border-radius: 4px; /* Square */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            width: 24px;
+            height: 24px;
+        }
+        .minimize-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+        }
+
+        #info-panel.minimized .log-row:not(:first-child) {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -195,7 +269,15 @@
         <div class="glass-panel">
             <header>
                 <h1>Live Liquidations</h1>
-                <div id="stats-value">$0.00 Vol</div>
+                <div class="header-controls">
+                    <div id="stats-value">$0.00 Vol</div>
+                    <button id="minimize-btn" class="minimize-btn" title="Toggle View">
+                         <!-- Default Up Arrow (Expanded) -->
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="18 15 12 9 6 15"></polyline>
+                         </svg>
+                    </button>
+                </div>
             </header>
             <div id="logs-container">
                 <!-- Logs will appear here -->
@@ -462,10 +544,35 @@
                 this.logsContainer = document.getElementById('logs-container');
                 this.statsValue = document.getElementById('stats-value');
                 this.notifDiv = document.getElementById('notification');
+                this.infoPanel = document.getElementById('info-panel');
+                this.minimizeBtn = document.getElementById('minimize-btn');
                 this.notifTimeout = null;
+
+                // Mobile Optimization: Default to minimized on small screens
+                if (window.innerWidth <= 768) {
+                    this.infoPanel.classList.add('minimized');
+                }
+                this._updateButtonIcon();
+
+                if (this.minimizeBtn) {
+                    this.minimizeBtn.addEventListener('click', () => {
+                        this.infoPanel.classList.toggle('minimized');
+                        this._updateButtonIcon();
+                    });
+                }
             }
 
-            addLog(symbol, side, formattedValue, color, iconUrl) {
+            _updateButtonIcon() {
+                if (!this.minimizeBtn) return;
+                const isMin = this.infoPanel.classList.contains('minimized');
+                // Minimized -> Show Down Arrow (Expand)
+                // Expanded -> Show Up Arrow (Collapse)
+                this.minimizeBtn.innerHTML = isMin
+                    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`
+                    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+            }
+
+            addLog(symbol, side, formattedValue, color, iconUrl, timestamp) {
                 const row = document.createElement('div');
                 row.className = 'log-row';
                 row.style.borderLeft = `3px solid ${color}`; // Color accent
@@ -497,8 +604,14 @@
                 sideSpan.className = `log-side ${isBuy ? 'side-buy' : 'side-sell'}`;
                 sideSpan.innerText = isBuy ? 'SHORT LIQ' : 'LONG LIQ';
 
+                const timeSpan = document.createElement('span');
+                timeSpan.innerText = timestamp;
+                timeSpan.style.fontSize = '10px';
+                timeSpan.style.color = 'var(--text-secondary)';
+
                 infoDiv.appendChild(symSpan);
                 infoDiv.appendChild(sideSpan);
+                infoDiv.appendChild(timeSpan);
 
                 // Amount
                 const amountDiv = document.createElement('div');
@@ -601,7 +714,8 @@
                 this.renderer.addFirework(targetX, targetY, size, color);
 
                 // Update UI
-                this.ui.addLog(symbol, order.S, Utils.formatCurrency.format(totalValue), color, iconUrl);
+                const timestamp = new Date(order.T).toLocaleTimeString();
+                this.ui.addLog(symbol, order.S, Utils.formatCurrency.format(totalValue), color, iconUrl, timestamp);
             }
         }
 
